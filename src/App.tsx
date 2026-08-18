@@ -7,7 +7,8 @@ import {
   Baby, TrendingUp, BookOpen, Heart, GraduationCap, Zap, Activity, User, Brain,
   Menu, GitBranch, Phone, Video, Plane, Stethoscope, PawPrint, BedDouble, Dna, Syringe, TestTube2,
 } from "lucide-react";
-
+import baseFemaleAdultUrl from "./base female adult.glb?url";
+import baseMaleAdultUrl from "./base male adult.glb?url";
 /* ============================================================
    THEME
    ============================================================ */
