@@ -337,14 +337,25 @@ o.material.needsUpdate=true;
         const key=new THREE.DirectionalLight(0xfff1e6,0.95); key.position.set(4,7,5); scene.add(key);
         const {mixer:mx}=setupCharacterMixer(root,gltf.animations||[],["idle","breathe","blink"]);
         mixer=mx;
-        
-        const resize=()=>{
-  const w=host.clientWidth||size,hh=host.clientHeight||h;
+        const host=hostRef.current;
+if(!host){
+  renderer.dispose();
+  return;
+}
+
+host.innerHTML="";
+host.appendChild(renderer.domElement);
+
+const resize=()=>{
+  const w=host.clientWidth||size;
+  const hh=host.clientHeight||h;
+
   renderer.setSize(w,hh,false);
   camera.aspect=w/hh;
   camera.updateProjectionMatrix();
   fitCameraToObject(camera,root,{padding:1.35});
 };
+
 resize();
 
 const ro=new ResizeObserver(()=>resize());
