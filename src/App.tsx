@@ -255,9 +255,325 @@ function resolveCharacterAsset(appearance,age){
 //                  "pregnant","jaw_wide","jaw_narrow","nose_prominent",
 //                  "nose_small","brow_thick","eyes_round","eyes_almond"
 //   nombres de mesh/material (o userData.slot): "skin","hair","eyes","top","bottom","shoes"
+// ---------------------------------------------------------------------------
+// Fallback por huesos (Fase 1, conservador)
+// ---------------------------------------------------------------------------
+
+// "chin.001_9" -> "chin.001"
+const boneBase = (name) => (name || "").replace(/_[0-9]+$/, "");
+
+function ensureOrigTransform(node){
+  if(!node.userData.__origTransform){
+    node.userData.__origTransform = {
+      pos: node.position.clone(),
+      scale: node.scale.clone(),
+      quat: node.quaternion.clone(),
+    };
+  }
+  return node.userData.__origTransform;
+}
+
+// v: 0..1 -> -1..1, con 0.5 neutral
+const traitDelta = (v) => (Math.max(0, Math.min(1, v)) - 0.5) * 2;
+
+function applyBoneScale(node, axis, v, maxDeviation){
+  const orig = ensureOrigTransform(node);
+  if(!node.userData.__scaleInit){
+    node.scale.copy(orig.scale);
+    node.userData.__scaleInit = true;
+  }
+  node.scale[axis] *= 1 + traitDelta(v) * maxDeviation;
+}
+
+function applyBoneTranslateLocal(node, axis, v, maxFraction, charHeight, signFromOrig=false){
+  const orig = ensureOrigTransform(node);
+  if(!node.userData.__posInit){
+    node.position.copy(orig.pos);
+    node.userData.__posInit = true;
+  }
+
+  let sign = 1;
+  if(signFromOrig){
+    const s = Math.sign(orig.pos[axis]);
+    sign = s !== 0 ? s : (node.name.includes(".R") ? 1 : -1);
+  }
+
+  node.position[axis] += traitDelta(v) * maxFraction * charHeight * sign;
+}
+
+function applyBoneRotateZMirrored(node, v, maxRadians){
+  const orig = ensureOrigTransform(node);
+  if(!node.userData.__rotInit){
+    node.quaternion.copy(orig.quat);
+    node.userData.__rotInit = true;
+  }
+
+  const s = Math.sign(orig.pos.x);
+  const sign = s !== 0 ? s : (node.name.includes(".R") ? 1 : -1);
+
+  const q = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0,0,1),
+    traitDelta(v) * maxRadians * sign
+  );
+
+  node.quaternion.multiply(q);
+}
+
+function computeCharHeight(root){
+  const box = new THREE.Box3().setFromObject(root);
+  const h = box.max.y - box.min.y;
+  return (h > 0.1 && isFinite(h)) ? h : 1.8;
+}
+
+const directionalTrait = (direction) =>
+  direction > 0 ? 1 : direction < 0 ? 0 : 0.5;
+
+function applyBoneFallbackGenetics(
+  gltfScene,
+  appearance,
+  dna,
+  charHeight,
+  presentMorphNames
+){
+  const has = (m) => presentMorphNames.has(m);
+
+  const byBase = {};
+  gltfScene.traverse(n=>{
+    const b = boneBase(n.name);
+    if(b){
+      (byBase[b] = byBase[b] || []).push(n);
+    }
+  });
+
+  const get = (b) => byBase[b] || [];
+  const one = (b) => get(b)[0];
+
+  // mandíbula / mentón — DNA
+  if(dna?.face?.jawWidth != null && !has("jaw_width")){
+    [...get("jaw.L"), ...get("jaw.R")].forEach(n =>
+      applyBoneTranslateLocal(n,"x",dna.face.jawWidth,0.006,charHeight,true)
+    );
+  }
+
+  if(dna?.face?.jawAngle != null && !has("jaw_angle")){
+    [...get("jaw.L"), ...get("jaw.R")].forEach(n =>
+      applyBoneRotateZMirrored(n,dna.face.jawAngle,0.035)
+    );
+  }
+
+  if(dna?.face?.chinWidth != null && !has("chin_width")){
+    const n = one("chin");
+    if(n) applyBoneScale(n,"x",dna.face.chinWidth,0.08);
+  }
+
+  if(dna?.face?.chinHeight != null && !has("chin_height")){
+    const n = one("chin.001");
+    if(n) applyBoneScale(n,"y",dna.face.chinHeight,0.08);
+  }
+
+  if(dna?.face?.chinProjection != null && !has("chin_projection")){
+    const n = one("chin.001");
+    if(n) applyBoneTranslateLocal(
+      n,"z",dna.face.chinProjection,0.008,charHeight,false
+    );
+  }
+
+  // mandíbula — appearance
+  if(appearance?.faceShapeId==="mandibula" && !has("jaw_width")){
+    [...get("jaw.L"), ...get("jaw.R")].forEach(n =>
+      applyBoneTranslateLocal(n,"x",directionalTrait(1),0.006,charHeight,true)
+    );
+  }
+
+  if(appearance?.faceShapeId==="alargado" && !has("jaw_width")){
+    [...get("jaw.L"), ...get("jaw.R")].forEach(n =>
+      applyBoneTranslateLocal(n,"x",directionalTrait(-1),0.006,charHeight,true)
+    );
+  }
+
+  // ojos / cejas — DNA
+  if(dna?.eyes?.spacing != null && !has("eye_spacing")){
+    [...get("eye.L"), ...get("eye.R")].forEach(n =>
+      applyBoneTranslateLocal(n,"x",dna.eyes.spacing,0.004,charHeight,true)
+    );
+  }
+
+  if(dna?.eyes?.depth != null && !has("eye_depth")){
+    [...get("eye.L"), ...get("eye.R")].forEach(n =>
+      applyBoneTranslateLocal(n,"z",dna.eyes.depth,0.004,charHeight,false)
+    );
+  }
+
+  if(dna?.eyes?.browHeight != null && !has("brow_height")){
+    ["brow.T.L","brow.T.R","brow.B.L","brow.B.R"].forEach(b=>{
+      const n = one(b);
+      if(n){
+        applyBoneTranslateLocal(
+          n,"y",dna.eyes.browHeight,0.006,charHeight,false
+        );
+      }
+    });
+  }
+
+  // nariz — DNA
+  if(dna?.nose?.length != null && !has("nose_length")){
+    const n = one("nose");
+    if(n) applyBoneScale(n,"y",dna.nose.length,0.10);
+  }
+
+  if(dna?.nose?.bridgeWidth != null && !has("nose_bridge_width")){
+    ["nose.001","nose.002"].forEach(b=>{
+      const n = one(b);
+      if(n) applyBoneScale(n,"x",dna.nose.bridgeWidth,0.08);
+    });
+  }
+
+  if(dna?.nose?.bridgeHeight != null && !has("nose_bridge_height")){
+    ["nose.001","nose.002"].forEach(b=>{
+      const n = one(b);
+      if(n){
+        applyBoneTranslateLocal(
+          n,"z",dna.nose.bridgeHeight,0.003,charHeight,false
+        );
+      }
+    });
+  }
+
+  if(dna?.nose?.projection != null && !has("nose_projection")){
+    const n = one("nose.004");
+    if(n){
+      applyBoneTranslateLocal(
+        n,"z",dna.nose.projection,0.006,charHeight,false
+      );
+    }
+  }
+
+  if(dna?.nose?.tipWidth != null && !has("nose_tip_width")){
+    [...get("nose.L"), ...get("nose.R")].forEach(n =>
+      applyBoneTranslateLocal(
+        n,"x",dna.nose.tipWidth,0.003,charHeight,true
+      )
+    );
+  }
+
+  // nariz — appearance
+  if(appearance?.noseShapeId==="prominente"){
+    if(!has("nose_projection")){
+      const n = one("nose.004");
+      if(n){
+        applyBoneTranslateLocal(
+          n,"z",directionalTrait(1),0.006,charHeight,false
+        );
+      }
+    }
+
+    if(!has("nose_length")){
+      const n = one("nose");
+      if(n) applyBoneScale(n,"y",directionalTrait(1),0.10);
+    }
+  }
+
+  if(appearance?.noseShapeId==="sutil"){
+    if(!has("nose_projection")){
+      const n = one("nose.004");
+      if(n){
+        applyBoneTranslateLocal(
+          n,"z",directionalTrait(-1),0.006,charHeight,false
+        );
+      }
+    }
+
+    if(!has("nose_bridge_width")){
+      ["nose.001","nose.002"].forEach(b=>{
+        const n = one(b);
+        if(n) applyBoneScale(n,"x",directionalTrait(-1),0.08);
+      });
+    }
+
+    if(!has("nose_length")){
+      const n = one("nose");
+      if(n) applyBoneScale(n,"y",directionalTrait(-1),0.10);
+    }
+  }
+
+  // boca — DNA
+  if(dna?.mouth?.width != null && !has("mouth_width")){
+    ["lip.T.L.001","lip.T.R.001","lip.B.L.001","lip.B.R.001"].forEach(b=>{
+      const n = one(b);
+      if(n){
+        applyBoneTranslateLocal(
+          n,"x",dna.mouth.width,0.005,charHeight,true
+        );
+      }
+    });
+  }
+
+  // cuerpo — DNA
+  if(dna?.body?.shoulderWidth != null && !has("shoulder_width")){
+    [...get("shoulder.L"), ...get("shoulder.R")].forEach(n =>
+      applyBoneTranslateLocal(
+        n,"x",dna.body.shoulderWidth,0.012,charHeight,true
+      )
+    );
+  }
+
+  if(dna?.body?.ribcageWidth != null && !has("ribcage_width")){
+    const n = one("spine.003");
+    if(n){
+      applyBoneScale(n,"x",dna.body.ribcageWidth,0.08);
+      applyBoneScale(n,"z",dna.body.ribcageWidth,0.06);
+    }
+  }
+
+  if(dna?.body?.hipWidth != null && !has("hip_width")){
+    [...get("pelvis.L"), ...get("pelvis.R")].forEach(n =>
+      applyBoneTranslateLocal(
+        n,"x",dna.body.hipWidth,0.012,charHeight,true
+      )
+    );
+  }
+
+  if(dna?.body?.torsoLength != null && !has("torso_length")){
+    const n = one("spine.001");
+    if(n) applyBoneScale(n,"y",dna.body.torsoLength,0.10);
+  }
+
+  if(dna?.body?.legLength != null && !has("leg_length")){
+    ["thigh.L","thigh.R","shin.L","shin.R"].forEach(b=>{
+      const n = one(b);
+      if(n) applyBoneScale(n,"y",dna.body.legLength,0.10);
+    });
+  }
+
+  if(dna?.body?.armLength != null && !has("arm_length")){
+    ["upper_arm.L","upper_arm.R","forearm.L","forearm.R"].forEach(b=>{
+      const n = one(b);
+      if(n) applyBoneScale(n,"y",dna.body.armLength,0.10);
+    });
+  }
+
+  if(dna?.body?.frameSize != null && !has("frame_size")){
+    [...get("shoulder.L"), ...get("shoulder.R")].forEach(n =>
+      applyBoneTranslateLocal(
+        n,"x",dna.body.frameSize,0.006,charHeight,true
+      )
+    );
+
+    [...get("pelvis.L"), ...get("pelvis.R")].forEach(n =>
+      applyBoneTranslateLocal(
+        n,"x",dna.body.frameSize,0.006,charHeight,true
+      )
+    );
+
+    const n = one("spine.003");
+    if(n) applyBoneScale(n,"x",dna.body.frameSize,0.04);
+  }
+}
 function applyVisualGenetics(gltfScene,appearance={},age=20,person=null){
+  const presentMorphNames = new Set();
   gltfScene.traverse(o=>{
     if(o.isSkinnedMesh && o.morphTargetDictionary){
+     Object.keys(o.morphTargetDictionary).forEach(name => presentMorphNames.add(name));
       const set=(name,v)=>{const i=o.morphTargetDictionary[name]; if(i!=null) o.morphTargetInfluences[i]=v;};
       const band=resolveCharacterAgeBand(age);
       set("age_baby",band==="baby"?1:0); set("age_child",band==="child"?1:0); set("age_teen",band==="teen"?1:0); set("age_elder",band==="elder"?1:0);
@@ -288,6 +604,14 @@ function applyVisualGenetics(gltfScene,appearance={},age=20,person=null){
       else if(slot==="bottom") o.material.color=new THREE.Color(colorNum(appearance.pantsColor));
     }
   });
+
+  applyBoneFallbackGenetics(
+    gltfScene,
+    appearance,
+    person?.genetics?.visualDNA,
+    computeCharHeight(gltfScene),
+    presentMorphNames
+  );
 }
 // Crea un AnimationMixer y reproduce el/los clip(s) pedidos por nombre lógico
 // (ver CHARACTER_ASSET_MANIFEST.animations) sobre una instancia ya clonada.
