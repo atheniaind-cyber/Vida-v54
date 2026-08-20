@@ -5250,7 +5250,7 @@ function advancePregnancyMonth(character) {
   }
 
   // Variedad real de controles: no todo es "todo en orden".
-  if (preg.month >= 3 && preg.month <= 8 && RandomSystem.float() < 0.10) {
+  if (preg.month >= 3 && preg.month <= 7 && RandomSystem.float() < 0.10) {
     const found = RandomSystem.pick(PREGNANCY_COMPLICATIONS);
     preg.complications = [...(preg.complications || []), { id: RandomSystem.id(), month: preg.month, label: found }];
     preg.extraConsultAllowed = { ...(preg.extraConsultAllowed || {}), [preg.month]: true };
