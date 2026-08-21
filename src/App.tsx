@@ -7979,7 +7979,14 @@ function PerfilScreen({ character, onBack, onOpenDebug }) {
 
 function DecisionModal({ decision, onResolve }) {
   return (
-    <div className="absolute inset-0 flex items-end justify-center z-20" style={{ background: "rgba(8,21,46,.55)" }}>
+   <div
+  className="absolute inset-0 flex items-end justify-center z-[100000]"
+  style={{
+    background: "rgba(8,21,46,.55)",
+    pointerEvents: "auto",
+    touchAction: "manipulation"
+  }}
+>
       <div className="w-full rounded-t-[28px] p-5" style={{ background: theme.color.card }}>
         <div className="flex items-center gap-2 mb-1">{React.createElement((CATEGORY_META[decision.cat] || {}).icon || Sparkles, { size: 16, color: theme.color.blue })}<span className="text-[10.5px] font-bold uppercase tracking-wide" style={{ color: theme.color.textMuted }}>Decisión</span></div>
         <p className="text-[14.5px] font-medium mb-4" style={{ color: theme.color.text }}>{decision.text}</p>
@@ -9092,8 +9099,17 @@ function LifeSimCore() {
     else if (tab === "actividades") body = <ActividadesScreen character={activeCharacter} onDo={doActivity} onStartSport={doStartSport} onPracticeSport={doPracticeSport} onStartHobby={doStartHobby} onPracticeHobby={doPracticeHobby} onAskOut={doAskOut} onOculista={doOculista} onHealthAction={doHealthAction} onTravel={doTravel} onAdoptPet={doAdoptPet} onPartnerAction={doPartnerAction} tab={tab} onTab={setTab} onAdvance={advanceHandler} />;
     else body = <HomeScreen character={activeCharacter} onAdvance={advanceHandler} onOpenActivity={doActivity} onOpenProfile={() => setProfileOpen(true)} onPrenatalAction={doPrenatalAction} onOpenPregnancyTest={openPregnancyTest} onSetBabyName={doSetBabyName} tab={tab} onTab={setTab} />;
     return (<div className="relative">{body}{decision && (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto">
-        <div className="w-full max-w-[410px] h-[840px] max-h-[94vh] relative pointer-events-auto"><DecisionModal decision={decision} onResolve={resolveTopDecision} /></div>
+   <div
+  className="fixed inset-0 z-[99999] flex items-center justify-center"
+  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+>
+  <div
+    className="w-full max-w-[410px] h-[840px] max-h-[94vh] relative"
+    style={{ pointerEvents: "auto" }}
+  >
+    <DecisionModal decision={decision} onResolve={resolveTopDecision} />
+  </div>
+</div>
       </div>)}</div>);
   }
 
