@@ -9092,7 +9092,7 @@ function LifeSimCore() {
     else if (tab === "actividades") body = <ActividadesScreen character={activeCharacter} onDo={doActivity} onStartSport={doStartSport} onPracticeSport={doPracticeSport} onStartHobby={doStartHobby} onPracticeHobby={doPracticeHobby} onAskOut={doAskOut} onOculista={doOculista} onHealthAction={doHealthAction} onTravel={doTravel} onAdoptPet={doAdoptPet} onPartnerAction={doPartnerAction} tab={tab} onTab={setTab} onAdvance={advanceHandler} />;
     else body = <HomeScreen character={activeCharacter} onAdvance={advanceHandler} onOpenActivity={doActivity} onOpenProfile={() => setProfileOpen(true)} onPrenatalAction={doPrenatalAction} onOpenPregnancyTest={openPregnancyTest} onSetBabyName={doSetBabyName} tab={tab} onTab={setTab} />;
     return (<div className="relative">{body}{decision && (
-      <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto">
         <div className="w-full max-w-[410px] h-[840px] max-h-[94vh] relative pointer-events-auto"><DecisionModal decision={decision} onResolve={resolveTopDecision} /></div>
       </div>)}</div>);
   }
