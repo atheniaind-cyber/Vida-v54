@@ -9278,19 +9278,27 @@ function LifeSimCore() {
     else if (tab === "bienes") body = <BienesScreen character={activeCharacter} tab={tab} onTab={setTab} onAdvance={advanceHandler} onBuyProperty={doBuyProperty} onPropertyAction={doPropertyAction} />;
     else if (tab === "actividades") body = <ActividadesScreen character={activeCharacter} onDo={doActivity} onStartSport={doStartSport} onPracticeSport={doPracticeSport} onStartHobby={doStartHobby} onPracticeHobby={doPracticeHobby} onAskOut={doAskOut} onOculista={doOculista} onHealthAction={doHealthAction} onTravel={doTravel} onAdoptPet={doAdoptPet} onPartnerAction={doPartnerAction} tab={tab} onTab={setTab} onAdvance={advanceHandler} />;
     else body = <HomeScreen character={activeCharacter} onAdvance={advanceHandler} onOpenActivity={doActivity} onOpenProfile={() => setProfileOpen(true)} onPrenatalAction={doPrenatalAction} onOpenPregnancyTest={openPregnancyTest} onSetBabyName={doSetBabyName} tab={tab} onTab={setTab} />;
-    return (<div className="relative">{body}{decision && (
-   <div
-  className="fixed inset-0 z-[99999] flex items-center justify-center"
-  style={{ pointerEvents: "auto", touchAction: "manipulation" }}
->
-  <div
-    className="w-full max-w-[410px] h-[840px] max-h-[94vh] relative"
-    style={{ pointerEvents: "auto" }}
-  >
-    <DecisionModal decision={decision} onResolve={resolveTopDecision} />
+    return (
+  <div className="relative">
+    {body}
+    {decision && (
+      <div
+        className="fixed inset-0 z-[99999] flex items-center justify-center"
+        style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+      >
+        <div
+          className="w-full max-w-[410px] h-[840px] max-h-[94vh] relative"
+          style={{ pointerEvents: "auto" }}
+        >
+          <DecisionModal
+            decision={decision}
+            onResolve={resolveTopDecision}
+          />
+        </div>
+      </div>
+    )}
   </div>
-</div>
-      </div>)}</div>);
+);
   }
 
   return <PhoneFrame><div className="flex-1 flex items-center justify-center"><Loader2 className="animate-spin" /></div></PhoneFrame>;
